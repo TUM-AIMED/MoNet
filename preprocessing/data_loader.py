@@ -10,7 +10,7 @@ import math
 from skimage.transform import resize
 from nilearn.image import resample_img
 from pathlib import Path, WindowsPath, PureWindowsPath, PosixPath, PurePosixPath
-from progress.bar import Bar
+from tqdm import tqdm
 
 
 def scale_array(array: np.array) -> np.array:
@@ -58,7 +58,8 @@ def load_data(path: Path, num_samples: int):
         Return: Data Dictionary (Key: filename , Value: Niib Image)"""
     data_dict = {}
     if not path.exists() or not path.is_dir():
-        raise ValueError("Given path does not exist or is a file : " + str(path))
+        raise ValueError(
+            "Given path does not exist or is a file : " + str(path))
     file_names = [file for file in path.rglob("*.nii.*")]
     files = [
         nib.load(str(file)) for i, file in enumerate(file_names) if i < num_samples
@@ -73,8 +74,8 @@ def merge_labels(label_volume: np.array) -> np.array:
         Input: label_volume = 3D numpy array
         Return: Merged Label volume """
     merged_label = np.zeros(label_volume.shape, dtype=np.float32)
-    merged_label[label_volume == 1] = 1
-    merged_label[label_volume == 2] = 1
+    merged_label[label_volume == 1] = 1.
+    merged_label[label_volume == 2] = 1.
     return merged_label
 
 
@@ -217,9 +218,9 @@ def prepare_data(
     assert num_scans == num_labels
 
     print(f"... preparing training data and labels({label_mode})")
-    bar = Bar("... Processing", max=num_samples)
+    #bar = Bar("... Processing", max=num_samples)
     data, labels = [], []
-    for scan_name in scan_data.keys():
+    for scan_name in tqdm(scan_data.keys()):
         # checking label and scan name match up
         if scan_name in segmentation_labels.keys():
             scan, label = scan_data[scan_name], segmentation_labels[scan_name]
@@ -231,7 +232,8 @@ def prepare_data(
         scan, label = preprocess_and_convert_to_numpy(scan, label)
 
         # merging tumor and pancreas labels in the label mask
-        label = merge_labels(label)
+        if mrg_labels:
+            label = merge_labels(label)
 
         # finding bounding box from segmentation label
         if label_mode == "bbox-seg" or label_mode == "bbox-coord":
@@ -247,26 +249,21 @@ def prepare_data(
             )
 
         # cropping scan and label volumes to reduce the number of non-pancreas slices
-        cropped_scan, cropped_label = crop_volume(scan, label, crop_height=crop_height)
+        cropped_scan, cropped_label = crop_volume(
+            scan, label, crop_height=crop_height)
         assert cropped_scan.shape == cropped_label.shape
         scan = resize(
             cropped_scan, (res, res, res_z), preserve_range=True, order=1
         ).astype(np.float32)
         label = resize(
             cropped_label, (res, res, res_z), preserve_range=True, order=0
-        ).astype(np.float32)
-
-        label[label < 0.5] = 0.0
-        label[label >= 0.5] = 1.0
+        ).astype(np.uint8)
 
         if label_mode == "bbox-coord":
             raise NotImplementedError()
 
         data.append(scan)
         labels.append(label)
-        bar.next()  # update progress bar
-
-    bar.finish()
 
     print("... total amount of training data:", len(data))
     print("... total amount of labels:", len(labels))
@@ -284,7 +281,8 @@ def prepare_data(
         len(train_labels),
         "label volumes",
     )
-    print("test set:", len(test_data), "scans and", len(test_labels), "label volumes")
+    print("test set:", len(test_data), "scans and",
+          len(test_labels), "label volumes")
 
     # Splitting Training Set into partial training set and validation set
     (
