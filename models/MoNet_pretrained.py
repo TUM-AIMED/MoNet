@@ -1,32 +1,18 @@
 import tensorflow
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import (
-    Conv2D,
-    Conv2DTranspose,
-    add,
-    concatenate,
-    multiply,
-    Activation,
-    Input,
-    SpatialDropout2D,
-    BatchNormalization,
-)
+from tensorflow.keras import layers
+import tensorflow as tf
+from keras_applications import get_submodules_from_kwargs
+import segmentation_models as sm
+from segmentation_models.models._common_blocks import Conv2dBn
+from segmentation_models.backbones.backbones_factory import Backbones
 
 
-def ConvBnElu(inp, filters, kernel_size=3, strides=1, dilation_rate=1):
+def ConvBnElu(inp, filters, kernel_size=3, strides=1, dilation_rate=1, activation='elu'):
     """ Conv-Batchnorm-Elu block
     """
-    x = Conv2D(
-        filters=filters,
-        kernel_size=kernel_size,
-        strides=strides,
-        padding="same",
-        kernel_initializer="he_uniform",
-        use_bias=False,
-        dilation_rate=dilation_rate,
-    )(inp)
-    x = BatchNormalization()(x)
-    x = Activation("elu")(x)
+    x = Conv2dBn(filters=filters, kernel_size=kernel_size,
+                 strides=strides, dilation_rate=dilation_rate, activation=activation, use_batchnorm=True)(inp)
     return x
 
 
@@ -35,16 +21,16 @@ def deconv(inp):
     """
     num_filters = inp.get_shape().as_list()[-1]
 
-    x = Conv2DTranspose(
+    x = layers.Conv2DTranspose(
         filters=num_filters,
         kernel_size=4,
         strides=2,
-        padding="same",
         use_bias=False,
+        padding="same",
         kernel_initializer="he_uniform",
     )(inp)
-    x = BatchNormalization()(x)
-    x = Activation("elu")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("elu")(x)
 
     return x
 
@@ -56,14 +42,14 @@ def repeat_block(inp, out_filters, dropout=0.2):
     skip = inp
 
     c1 = ConvBnElu(inp, out_filters, dilation_rate=4)
-    c1 = SpatialDropout2D(dropout)(c1)
-    c2 = ConvBnElu(add([skip, c1]), out_filters, dilation_rate=3)
-    c2 = SpatialDropout2D(dropout)(c2)
+    c1 = layers.SpatialDropout2D(dropout)(c1)
+    c2 = ConvBnElu(layers.add([skip, c1]), out_filters, dilation_rate=3)
+    c2 = layers.SpatialDropout2D(dropout)(c2)
     c3 = ConvBnElu(c2, out_filters, dilation_rate=2)
-    c3 = SpatialDropout2D(dropout)(c3)
-    c4 = ConvBnElu(add([c2, c3]), out_filters, dilation_rate=1)
+    c3 = layers.SpatialDropout2D(dropout)(c3)
+    c4 = ConvBnElu(layers.add([c2, c3]), out_filters, dilation_rate=1)
 
-    return add([skip, c4])
+    return layers.add([skip, c4])
 
 
 def getMoNet(
@@ -74,15 +60,24 @@ def getMoNet(
     dropout_enc=0.2,
     dropout_dec=0.2,
 ):
+    backbone = Backbones.get_backbone(
+        backbone_name,
+        input_shape=input_shape,
+        weights=encoder_weights,
+        include_top=False,
+        **kwargs,
+    )
 
-    inputs = x = Input(input_shape)
+    input_ = backbone.input
+    x = backbone.output
+
+    inputs = x = layers.Input(input_shape)
     skips = []
     features = n_filters_init
     if output_classes > 1:
         activation = 'softmax'
     else:
         activation = 'sigmoid'
-        
 
     # encoder
     for i in range(depth):
@@ -100,12 +95,12 @@ def getMoNet(
     for i in reversed(range(depth)):
         features //= 2
         x = deconv(x)
-        x = concatenate([skips[i], x])
+        x = layers.concatenate([skips[i], x])
         x = ConvBnElu(x, features)
         x = repeat_block(x, features, dropout=dropout_dec)
 
     # head
-    final_conv = Conv2D(
+    final_conv = layers.Conv2D(
         output_classes,
         kernel_size=1,
         strides=1,
@@ -113,6 +108,6 @@ def getMoNet(
         kernel_initializer="he_uniform",
         use_bias=False,
     )(x)
-    final_bn = BatchNormalization()(final_conv)
-    act = Activation(activation)(final_bn)
+    final_bn = layers.BatchNormalization()(final_conv)
+    act = layers.Activation(activation)(final_bn)
     return Model(inputs, act)

@@ -1,5 +1,5 @@
 from functools import partial
-import tensorflow
+import tensorflow as tf
 from tensorflow.keras import backend as K
 from .metric import dice_coefficient, dice_coefficient_3d
 
@@ -14,11 +14,12 @@ def dice_loss_3d(y_true, y_pred):
 
 
 def weighted_cross_entropy(y_true, y_pred, beta=100.0):
-    y_pred_clipped = tensorflow.clip_by_value(y_pred, K.epsilon(), 1 - K.epsilon())
-    y_pred_logits = tensorflow.math.log(y_pred_clipped / (1 - y_pred_clipped))
+    y_pred_clipped = tf.clip_by_value(
+        y_pred, K.epsilon(), 1 - K.epsilon())
+    y_pred_logits = tf.math.log(y_pred_clipped / (1 - y_pred_clipped))
 
-    weighted_xe = tensorflow.nn.weighted_cross_entropy_with_logits(
+    weighted_xe = tf.nn.weighted_cross_entropy_with_logits(
         logits=y_pred_logits, labels=y_true, pos_weight=beta
     )
 
-    return tensorflow.reduce_mean(weighted_xe)
+    return tf.reduce_mean(weighted_xe)
