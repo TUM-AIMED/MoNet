@@ -19,7 +19,6 @@ def ConvBnElu(inp, filters, kernel_size=3, strides=1, dilation_rate=1):
     x = tfp_layers.Convolution2DFlipout(
         filters=filters,
         kernel_size=kernel_size,
-        kernel_divergence_fn=kl_divergence_function,
         strides=strides,
         padding="same",
         dilation_rate=dilation_rate,
@@ -35,7 +34,7 @@ def deconv(inp):
     """
     num_filters = inp.get_shape().as_list()[-1]
 
-    x = tf_layers.Conv2DTranspose(                # TODO: do we need to implement a flip-out version of this as well?
+    x = tf_layers.Conv2DTranspose(
         filters=num_filters,
         kernel_size=4,
         strides=2,
@@ -115,7 +114,8 @@ def getMoNet(
     return tf.keras.models.Model(inputs, act)
 
 
-monet = getMoNet(output_classes=3)
+"""
+monet = getMoNet(output_classes=1)
 monet.summary()
 
 
@@ -138,3 +138,4 @@ monet.fit(X_partial[..., None], y_partial,
           validation_data=(X_val[..., None], y_val),
           epochs=20,
           verbose=1)
+"""
