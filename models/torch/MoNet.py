@@ -22,7 +22,7 @@ class ConvBnElu(nn.Module):
         # TODO: how to add asymmetric padding? tuple option for padding only specifies the different dims 
         same_padding = int(dilation_rate*(kernel_size-1)*0.5)
 
-        # TODO: kernel_initializer="he_uniform",
+        # TODO: kernel_initializer="he_uniform",git b
 
         self.conv = nn.Conv2d(
             in_channels=old_filters, 
@@ -133,6 +133,7 @@ class MoNet(nn.Module):
         super(MoNet, self).__init__()
         
         # store param in case they're needed later
+        # TODO: Probably change order of dimensions
         self.input_shape = input_shape
         self.output_classes = output_classes
         self.depth = depth
