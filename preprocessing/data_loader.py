@@ -155,17 +155,24 @@ def create_3D_label(
 
 
 def crop_volume(
-    data_volume: np.array, label_volume: np.array, crop_height: int = 32
+    data_volume: np.array, label_volume: np.array, crop_height: int = 32, mode='2D',
 ) -> np.array:
-    """Crops two 3D Numpy array along the zaxis to crop_height. Finds the midpoint of the pancreas label along the z-axis and crops [..., zmiddle-(crop_height//2):zmiddle+(crop_height//2)].
-       Return: two np.array s """
+    """Crops two 3D Numpy array along the zaxis to crop_height.
+        Finds the midpoint of the pancreas label along the z-axis and crops [..., zmiddle-(crop_height//2):zmiddle+(crop_height//2)] in
+        3D mode to produce 3D samples of same dimensions.
+        In 2D mode volumes are cropped to [..., zmin - crop_height//2, z_max + crop_height//2]
+        Return: two np.arrays """
     rmin, rmax, cmin, cmax, zmin, zmax = bbox_dim_3D(label_volume)
 
-    zmiddle = (zmin + zmax) // 2
-    z_min = zmiddle - (crop_height // 2)
+    if mode == "3D":
+        zmiddle = (zmin + zmax) // 2
+        z_min = zmiddle - (crop_height // 2)
+        z_max = zmiddle + (crop_height // 2)
+    elif mode == "2D":
+        z_min = z_min - (crop_height//2)
+        z_max = z_max + (crop_height//2)
     if z_min < 0:
         z_min = 0
-    z_max = zmiddle + (crop_height // 2)
     cropped_data_volume = data_volume[:, :, z_min:z_max]
     cropped_label_volume = label_volume[:, :, z_min:z_max]
 
@@ -196,6 +203,9 @@ def prepare_data(
             mode: 2D or 3D (return either 2D or 3D training tensors and labels) 
             res: resolution to downscale data to
             crop_height: crop region that determines the amount of context (non-label slices) that will be included in the label
+                         if mode == '2D' volumes are cropped simply from z_min - crop_height to z-max + crop_height along the z-axis.
+                         if mode == '3D' the midpoint of the label along the z-axis is determined and the volume then cropped from z_middle - crop_height
+                         to z_middle + crop_height to ensure that the samples have equal dimensions for the z-axis.
             label_mode: seg -> segmentation; bbox-seg -> bounding box segmentation labels; bbox-coord
         Return: x_train, y_train, x_test, y_test """
 
@@ -205,7 +215,8 @@ def prepare_data(
     label_path = data_path / "labelsTr"
 
     assert img_path.exists() and label_path.exists()
-    assert (crop_height % 16) == 0
+    if mode == "3D":
+        assert (crop_height % 16) == 0
     # importing training data
     print("... preparing data")
     print("... importing training data")
@@ -250,7 +261,7 @@ def prepare_data(
 
         # cropping scan and label volumes to reduce the number of non-pancreas slices
         cropped_scan, cropped_label = crop_volume(
-            scan, label, crop_height=crop_height)
+            scan, label, crop_height=crop_height, mode=mode)
         assert cropped_scan.shape == cropped_label.shape
         scan = resize(
             cropped_scan, (res, res, res_z), preserve_range=True, order=1
