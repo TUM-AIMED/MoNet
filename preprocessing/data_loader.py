@@ -58,8 +58,7 @@ def load_data(path: Path, num_samples: int):
         Return: Data Dictionary (Key: filename , Value: Niib Image)"""
     data_dict = {}
     if not path.exists() or not path.is_dir():
-        raise ValueError(
-            "Given path does not exist or is a file : " + str(path))
+        raise ValueError("Given path does not exist or is a file : " + str(path))
     file_names = [file for file in path.rglob("*.nii.*")]
     files = [
         nib.load(str(file)) for i, file in enumerate(file_names) if i < num_samples
@@ -74,8 +73,8 @@ def merge_labels(label_volume: np.array) -> np.array:
         Input: label_volume = 3D numpy array
         Return: Merged Label volume """
     merged_label = np.zeros(label_volume.shape, dtype=np.float32)
-    merged_label[label_volume == 1] = 1.
-    merged_label[label_volume == 2] = 1.
+    merged_label[label_volume == 1] = 1.0
+    merged_label[label_volume == 2] = 1.0
     return merged_label
 
 
@@ -155,22 +154,22 @@ def create_3D_label(
 
 
 def crop_volume(
-    data_volume: np.array, label_volume: np.array, crop_height: int = 32, mode='2D',
+    data_volume: np.array, label_volume: np.array, crop_height: int = 32, mode="2D",
 ) -> np.array:
     """Crops two 3D Numpy array along the zaxis to crop_height.
         Finds the midpoint of the pancreas label along the z-axis and crops [..., zmiddle-(crop_height//2):zmiddle+(crop_height//2)] in
         3D mode to produce 3D samples of same dimensions.
         In 2D mode volumes are cropped to [..., zmin - crop_height//2, z_max + crop_height//2]
         Return: two np.arrays """
-    rmin, rmax, cmin, cmax, zmin, zmax = bbox_dim_3D(label_volume)
+    (rmin, rmax, cmin, cmax, zmin, zmax) = bbox_dim_3D(label_volume)
 
     if mode == "3D":
         zmiddle = (zmin + zmax) // 2
         z_min = zmiddle - (crop_height // 2)
         z_max = zmiddle + (crop_height // 2)
     elif mode == "2D":
-        z_min = z_min - (crop_height//2)
-        z_max = z_max + (crop_height//2)
+        z_min = zmin - (crop_height // 2)
+        z_max = zmax + (crop_height // 2)
     if z_min < 0:
         z_min = 0
     cropped_data_volume = data_volume[:, :, z_min:z_max]
@@ -229,7 +228,7 @@ def prepare_data(
     assert num_scans == num_labels
 
     print(f"... preparing training data and labels({label_mode})")
-    #bar = Bar("... Processing", max=num_samples)
+    # bar = Bar("... Processing", max=num_samples)
     data, labels = [], []
     for scan_name in tqdm(scan_data.keys()):
         # checking label and scan name match up
@@ -261,7 +260,8 @@ def prepare_data(
 
         # cropping scan and label volumes to reduce the number of non-pancreas slices
         cropped_scan, cropped_label = crop_volume(
-            scan, label, crop_height=crop_height, mode=mode)
+            scan, label, crop_height=crop_height, mode=mode
+        )
         assert cropped_scan.shape == cropped_label.shape
         scan = resize(
             cropped_scan, (res, res, res_z), preserve_range=True, order=1
@@ -292,8 +292,7 @@ def prepare_data(
         len(train_labels),
         "label volumes",
     )
-    print("test set:", len(test_data), "scans and",
-          len(test_labels), "label volumes")
+    print("test set:", len(test_data), "scans and", len(test_labels), "label volumes")
 
     # Splitting Training Set into partial training set and validation set
     (

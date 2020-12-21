@@ -110,7 +110,7 @@ def conv2d_block(
     return c
 
 
-def custom_unet(
+def get_custom_unet(
     input_shape,
     num_classes=1,
     use_batch_norm=True,
