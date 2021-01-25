@@ -1,0 +1,17 @@
+name: monet
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - tensorflow-gpu
+  - scikit-learn
+  - nibabel
+  - nilearn
+  - opencv  
+  - black
+  - ipykernel
+  - tqdm
+  - pylint
+  - pip
+  - pip:
+    - segmentation-models
