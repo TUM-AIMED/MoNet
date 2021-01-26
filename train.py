@@ -1,20 +1,25 @@
 # %%
-from tensorflow.keras import layers
+import tensorflow as tf
+
+# from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from preprocessing.data_loader import prepare_data
 from models.MoNet import getMoNet
 import segmentation_models as sm
-import tensorflow.compat.v1 as tf
 
 # import tensorflow as tf
 import numpy as np
 
 # %%
+# gpu = tf.config.experimental.list_physical_devices("GPU")
+# tf.config.experimental.set_memory_growth(gpu[0], True)
+
+# %%
 
 RES = 256
-RES_Z = 16
-CROP_HEIGHT = 16
+# RES_Z = 16
+# CROP_HEIGHT = 16
 
 
 b_size = 16
@@ -42,18 +47,46 @@ image_generator = image_datagen.flow_from_directory(
     save_format="png",
 )
 mask_generator = mask_datagen.flow_from_directory(
-    "../data/tf_format/train/masks", seed=seed, batch_size=b_size
+    "../data/tf_format/train/masks",
+    seed=seed,
+    batch_size=b_size,
+    color_mode="grayscale",
 )
 train_generator = zip(image_generator, mask_generator)
 
+data_gen_args = dict(
+    # rotation_range=10.0,
+    # zoom_range=(0.8, 1.2),
+    # height_shift_range=0.2,
+    # width_shift_range=0.2,
+    # brightness_range=(0.7, 1.2),
+    rescale=1
+    / 255.0,
+)
+
+image_datagen = ImageDataGenerator(**data_gen_args)
+mask_datagen = ImageDataGenerator(**data_gen_args)
 val_generator = zip(
     image_datagen.flow_from_directory(
-        "../data/tf_format/val/images", seed=seed, batch_size=b_size
+        "../data/tf_format/val/images",
+        seed=seed,
+        batch_size=b_size,
+        color_mode="grayscale",
     ),
     mask_datagen.flow_from_directory(
-        "../data/tf_format/val/masks", seed=seed, batch_size=b_size
+        "../data/tf_format/val/masks",
+        seed=seed,
+        batch_size=b_size,
+        color_mode="grayscale",
     ),
 )
+# %%
+# x = next(train_generator)
+# # %%
+# print(x[0][0].shape)
+# print(x[1][0].shape)
+# print(x[0][0].min())
+# print(x[0][0].max())
 # %%
 
 model = getMoNet(input_shape=(RES, RES, 1), output_classes=n_classes)
@@ -70,7 +103,7 @@ model.summary()
 """
 # %%
 
-dice_l = sm.losses.bce_dice_loss
+dice_l = sm.losses.dice_loss
 dice_c = sm.metrics.f1_score
 # %%
 
@@ -78,9 +111,12 @@ model.compile(
     loss=dice_l,
     optimizer="adam",
     metrics=[dice_c, tf.keras.metrics.Precision(), tf.keras.metrics.Recall()],
-    experimental_run_tf_function=False,
+    # experimental_run_tf_function=False,
 )
 # %%
+
+# %%
+# model(tf.ones((16, 256, 256, 1)))
 
 # model.load_weights("./serialized/weights/bayesian_monet.h5")
 # %%
@@ -88,6 +124,7 @@ model.compile(
 history = model.fit(
     train_generator,
     epochs=150,
+    steps_per_epoch=len(image_generator),
     validation_data=val_generator,
     callbacks=[
         tf.keras.callbacks.EarlyStopping(
