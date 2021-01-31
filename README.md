@@ -34,6 +34,6 @@ https://arxiv.org/abs/2009.00872
 
 
 ## Results
-![inf_performance](/images/inference_time.png)
-
-![dice_performance](/images/dice_performance.png)
+![inference_performance](/images/cpu_inference_time.png)
+![segmentation_performance](/images/segmentation_performance.png)
+![model_size](/images/serialized_model_size.png)
