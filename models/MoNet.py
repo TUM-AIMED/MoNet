@@ -63,7 +63,7 @@ def repeat_block(inp, out_filters, dropout=0.2):
     c3 = SpatialDropout2D(dropout)(c3)
     c4 = ConvBnElu(add([c2, c3]), out_filters, dilation_rate=1)
 
-    return add([skip, c4])
+    return c4
 
 
 def getMoNet(
@@ -79,10 +79,9 @@ def getMoNet(
     skips = []
     features = n_filters_init
     if output_classes > 1:
-        activation = 'softmax'
+        activation = "softmax"
     else:
-        activation = 'sigmoid'
-        
+        activation = "sigmoid"
 
     # encoder
     for i in range(depth):
